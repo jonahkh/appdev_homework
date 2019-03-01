@@ -58,32 +58,21 @@ podTemplate(
 
             // Using Maven run the unit tests
 //        stage("Unit Tests") {
-            stage("Testing") {
-                parallel(
-                        "Unit Tests": {
-                            stage("Unit Tests") {
-                                sh "${mvnCmd} test"
-                            }
-                        },
-                        "Code Coverage": {
-                            stage("Code Coverage") {
-                                sh "${mvnCmd} verify sonar:sonar -Dsonar.host.url=http://sonarqube.gpte-hw-cicd.svc.cluster.local:9000  -Dsonar.projectName=${JOB_BASE_NAME}-${devTag}"
-
-                            }
-                        }
-                )
-            }
+//            stage("Testing") {
 //                parallel(
-//                        unitTests: {
-//                            echo "Unit Tests"
-//                            sh "${mvnCmd} test"
+//                        "Unit Tests": {
+//                            stage("Unit Tests") {
+//                                sh "${mvnCmd} test"
+//                            }
 //                        },
-//                        codeCoverage: {
-//                            echo "Code Coverage"
-//                            sh "${mvnCmd} verify sonar:sonar -Dsonar.host.url=http://sonarqube.gpte-hw-cicd.svc.cluster.local:9000  -Dsonar.projectName=${JOB_BASE_NAME}-${devTag}"
+//                        "Code Coverage": {
+//                            stage("Code Coverage") {
+//                                sh "${mvnCmd} verify sonar:sonar -Dsonar.host.url=http://sonarqube.gpte-hw-cicd.svc.cluster.local:9000  -Dsonar.projectName=${JOB_BASE_NAME}-${devTag}"
+//
+//                            }
 //                        }
+//                )
 //            }
-//        }
 
             // Publish the built war file to Nexus
             stage('Publish to Nexus') {
