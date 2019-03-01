@@ -21,17 +21,18 @@ podTemplate(
 
         // Checkout Source Code.
         stage('Checkout Source') {
-            steps {
-                git url: "https://github.com/jonahkh/appdev_homework.git"
-                script {
-                    echo "Cloning git repository"
-                    pom = readMavenPom file: 'openshift-tasks/pom.xml'
-                    version = pom.version
-                    echo "${version}"
-                    devTag = "${version}-${BUILD_NUMBER}"
-                    prodTag = "${version}"
-                }
-            }
+            checkout scm
+//            steps {
+//                git url: "https://github.com/jonahkh/appdev_homework.git"
+//                script {
+//                    echo "Cloning git repository"
+//                    pom = readMavenPom file: 'openshift-tasks/pom.xml'
+//                    version = pom.version
+//                    echo "${version}"
+//                    devTag = "${version}-${BUILD_NUMBER}"
+//                    prodTag = "${version}"
+//                }
+//            }
         }
 
         // Build the Tasks Service
@@ -57,7 +58,21 @@ podTemplate(
 
             // Using Maven run the unit tests
 //        stage("Unit Tests") {
-//            steps {
+            stage("Testing") {
+                parallel(
+                        "Unit Tests": {
+                            stage("Unit Tests") {
+                                sh "${mvnCmd} test"
+                            }
+                        },
+                        "Code Coverage": {
+                            stage("Code Coverage") {
+                                sh "${mvnCmd} verify sonar:sonar -Dsonar.host.url=http://sonarqube.gpte-hw-cicd.svc.cluster.local:9000  -Dsonar.projectName=${JOB_BASE_NAME}-${devTag}"
+
+                            }
+                        }
+                )
+            }
 //                parallel(
 //                        unitTests: {
 //                            echo "Unit Tests"
@@ -67,7 +82,6 @@ podTemplate(
 //                            echo "Code Coverage"
 //                            sh "${mvnCmd} verify sonar:sonar -Dsonar.host.url=http://sonarqube.gpte-hw-cicd.svc.cluster.local:9000  -Dsonar.projectName=${JOB_BASE_NAME}-${devTag}"
 //                        }
-//                )
 //            }
 //        }
 
@@ -80,16 +94,12 @@ podTemplate(
 
             // Build the OpenShift Image in OpenShift and tag it.
             stage('Build and Tag OpenShift Image') {
-                steps {
-                    echo "Building container image ${devTag}"
-                    script {
-                        openshift.withCluster() {
-                            openshift.withProject("${devProject}") {
-                                openshift.selector("bc", "tasks").startBuild("--from-file=./${workingDir}target/openshift-tasks.war", "--wait=true")
-                                openshift.tag("tasks:latest", "tasks:${BUILD_NUMBER}")
-                                openshift.tag("tasks:latest", "tasks:${version}")
-                            }
-                        }
+                echo "Building container image ${devTag}"
+                openshift.withCluster() {
+                    openshift.withProject("${devProject}") {
+                        openshift.selector("bc", "tasks").startBuild("--from-file=./${workingDir}target/openshift-tasks.war", "--wait=true")
+                        openshift.tag("tasks:latest", "tasks:${BUILD_NUMBER}")
+                        openshift.tag("tasks:latest", "tasks:${version}")
                     }
                 }
                 // TBD: Build Image, tag Image
@@ -98,27 +108,23 @@ podTemplate(
             // Deploy the built image to the Development Environment.
             stage('Deploy to Dev') {
                 echo "Deploying container image to Development Project"
-                steps: {
-                    script {
-                        // Update the Image on the Development Deployment Config
-                        openshift.withCluster() {
-                            openshift.withProject("${devProject}") {
-                                openshift.set("image", "dc/tasks", "tasks=docker-registry.default.svc:5000/${devProject}/tasks:${devTag}")
+                // Update the Image on the Development Deployment Config
+                openshift.withCluster() {
+                    openshift.withProject("${devProject}") {
+                        openshift.set("image", "dc/tasks", "tasks=docker-registry.default.svc:5000/${devProject}/tasks:${devTag}")
 
-                                // Deploy the development application.
-                                openshift.selector("dc", "tasks").rollout().latest()
+                        // Deploy the development application.
+                        openshift.selector("dc", "tasks").rollout().latest()
 
-                                // Wait for application to be deployed
-                                def dc = openshift.selector("dc", "tasks").object()
-                                def dc_version = dc.status.latestVersion
-                                def rc = openshift.selector("rc", "tasks-${dc_version}").object()
+                        // Wait for application to be deployed
+                        def dc = openshift.selector("dc", "tasks").object()
+                        def dc_version = dc.status.latestVersion
+                        def rc = openshift.selector("rc", "tasks-${dc_version}").object()
 
-                                echo "Waiting for ReplicationController tasks-${dc_version} to be ready"
-                                while (rc.spec.replicas != rc.status.readyReplicas) {
-                                    sleep 5
-                                    rc = openshift.selector("rc", "tasks-${dc_version}").object()
-                                }
-                            }
+                        echo "Waiting for ReplicationController tasks-${dc_version} to be ready"
+                        while (rc.spec.replicas != rc.status.readyReplicas) {
+                            sleep 5
+                            rc = openshift.selector("rc", "tasks-${dc_version}").object()
                         }
                     }
                 }
