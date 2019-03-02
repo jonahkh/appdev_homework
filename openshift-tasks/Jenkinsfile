@@ -34,6 +34,7 @@ podTemplate(
 //                }
 //            }
         }
+        def devTagTemp = "Use outer scope"
 
         // Build the Tasks Service
         dir('openshift-tasks') {
@@ -97,10 +98,11 @@ podTemplate(
 
             // Deploy the built image to the Development Environment.
             stage('Deploy to Dev') {
-                echo "Deploying container image to Development Project"
+                echo "Deploying container image ${devTag} to Development Project"
                 // Update the Image on the Development Deployment Config
                 openshift.withCluster() {
                     openshift.withProject("${devProject}") {
+                        echo "${devTagTemp} **********************************************************"
                         openshift.set("image", "dc/tasks", "tasks=docker-registry.default.svc:5000/${devProject}/tasks:${devTag}")
 
                         // Deploy the development application.
