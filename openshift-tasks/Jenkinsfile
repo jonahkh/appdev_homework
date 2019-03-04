@@ -23,7 +23,7 @@ podTemplate(
         stage('Checkout Source') {
             checkout scm
         }
-        def devTagTemp = "Use outer scope"
+        def devTemp
 
         // Build the Tasks Service
         dir('openshift-tasks') {
@@ -34,7 +34,7 @@ podTemplate(
             def version = getVersionFromPom("pom.xml")
 
             // TBD Set the tag for the development image: version + build number
-            def devTag = "${version}-${BUILD_NUMBER}"
+            devTag = "${version}-${BUILD_NUMBER}"
             // Set the tag for the production image: version
             def prodTag = "${version}"
             def devProject = "${GUID}-tasks-dev"
@@ -77,9 +77,10 @@ podTemplate(
                 echo "Building container image ${devTag}"
                 openshift.withCluster() {
                     openshift.withProject("${devProject}") {
-                        openshift.selector("bc", "tasks").startBuild("--from-file=./target/openshift-tasks.war", "--wait=true")
-                        openshift.tag("tasks:latest", "tasks:${BUILD_NUMBER}")
-                        openshift.tag("tasks:latest", "tasks:${version}")
+                        def status = openshift.selector("bc", "tasks").startBuild("--from-file=./target/openshift-tasks.war", "--wait=true")
+                        echo "Build status: ${status}"
+                        def imageTag = openshift.tag("tasks:latest", "tasks:${devTag}")
+                        echo "Image Tag: ${imagetag}"
                     }
                 }
                 // TBD: Build Image, tag Image
@@ -91,7 +92,7 @@ podTemplate(
                 // Update the Image on the Development Deployment Config
                 openshift.withCluster() {
                     openshift.withProject("${devProject}") {
-                        echo "${devTagTemp} **********************************************************"
+                        echo "Tagging dev image for project : ${devProject} tag: ${devTag}"
                         openshift.set("image", "dc/tasks", "tasks=docker-registry.default.svc:5000/${devProject}/tasks:${devTag}")
 
                         // Deploy the development application.
