@@ -22,17 +22,6 @@ podTemplate(
         // Checkout Source Code.
         stage('Checkout Source') {
             checkout scm
-//            steps {
-//                git url: "https://github.com/jonahkh/appdev_homework.git"
-//                script {
-//                    echo "Cloning git repository"
-//                    pom = readMavenPom file: 'openshift-tasks/pom.xml'
-//                    version = pom.version
-//                    echo "${version}"
-//                    devTag = "${version}-${BUILD_NUMBER}"
-//                    prodTag = "${version}"
-//                }
-//            }
         }
         def devTagTemp = "Use outer scope"
 
