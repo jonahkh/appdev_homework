@@ -133,18 +133,16 @@ podTemplate(
                     openshift.withProject("${prodProject}") {
                         def router = openshift.selector("route", "tasks")
                         def currentApp = router.object().spec.to.name
-                        def newApp = "tasks-green"
                         if (currentApp == "tasks-green") {
-                            newApp = "tasks-blue"
+                            destApp = "tasks-blue"
                         }
                         echo "Current app: ${currentApp}"
-                        echo "New app: ${newApp}"
+                        echo "New app: ${destApp}"
 
                         def deploymentConfig = openshift.selector("dc/${destApp}").object()
                         deploymentConfig.spec.template.spec.containers[0].image = "docker-registry.default.svc:5000/${devProject}/tasks:${prodTag}"
                         openshift.apply(deploymentConfig)
                         openshift.selector("dc/${destApp}").rollout().latest()
-                        openshift.selector("dc", "${destApp}").rollout().latest();
 
                         // Wait for application to be deployed
                         def dc_prod = openshift.selector("dc", "${destApp}").object()
