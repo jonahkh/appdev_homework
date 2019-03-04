@@ -91,7 +91,7 @@ podTemplate(
                 openshift.withCluster() {
                     openshift.withProject("${devProject}") {
                         echo "Tagging dev image for project : ${devProject} tag: ${devTag}"
-                        sh "oc set env dc/tasks VERSION='${devTag} (tasks-dev)'"
+                        sh "oc set env dc/tasks VERSION='${devTag} (tasks-dev)' -n ${devProject}"
 
                         openshift.set("image", "dc/tasks", "tasks=docker-registry.default.svc:5000/${devProject}/tasks:${devTag}")
 
