@@ -80,7 +80,7 @@ podTemplate(
                         def status = openshift.selector("bc", "tasks").startBuild("--from-file=./target/openshift-tasks.war", "--wait=true")
                         echo "Build status: ${status}"
                         def imageTag = openshift.tag("tasks:latest", "tasks:${devTag}")
-                        echo "Image Tag: ${imagetag}"
+                        echo "Image Tag: ${imageIag}"
                     }
                 }
                 // TBD: Build Image, tag Image
