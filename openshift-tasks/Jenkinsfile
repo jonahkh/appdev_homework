@@ -77,10 +77,8 @@ podTemplate(
                 echo "Building container image ${devTag}"
                 openshift.withCluster() {
                     openshift.withProject("${devProject}") {
-                        def status = openshift.selector("bc", "tasks").startBuild("--from-file=./target/openshift-tasks.war", "--wait=true")
-                        echo "Build status: ${status}"
-                        def imageTag = openshift.tag("tasks:latest", "tasks:${devTag}")
-                        echo "Image Tag: ${imageTag}"
+                        openshift.selector("bc", "tasks").startBuild("--from-file=./target/openshift-tasks.war", "--wait=true")
+                        openshift.tag("tasks:latest", "tasks:${devTag}")
                     }
                 }
                 // TBD: Build Image, tag Image
@@ -131,6 +129,36 @@ podTemplate(
             def activeApp = ""
 
             stage('Blue/Green Production Deployment') {
+                openshift.withCluster() {
+                    openshift.withProject("${prodProject}") {
+                        def router = openshift.selector("route", "tasks")
+                        def currentApp = router.object().spec.to.name
+                        def newApp = "tasks-green"
+                        if (currentApp == "tasks-green") {
+                            newApp = "tasks-blue"
+                        }
+                        echo "Current app: ${currentApp}"
+                        echo "New app: ${newApp}"
+
+                        def deploymentConfig = openshift.selector("dc/${destApp}").object()
+                        deploymentConfig.spec.template.spec.containers[0].image = "docker-registry.default.svc:5000/${devProject}/tasks:${prodTag}"
+                        openshift.apply(deploymentConfig)
+                        openshift.selector("dc/${destApp}").rollout().latest()
+                        openshift.selector("dc", "${destApp}").rollout().latest();
+
+                        // Wait for application to be deployed
+                        def dc_prod = openshift.selector("dc", "${destApp}").object()
+                        def dc_version = dc_prod.status.latestVersion
+                        def rc_prod = openshift.selector("rc", "${destApp}-${dc_version}").object()
+                        echo "Waiting for ${destApp} to be ready"
+                        while (rc_prod.spec.replicas != rc_prod.status.readyReplicas) {
+                            sleep 5
+                            rc_prod = openshift.selector("rc", "${destApp}-${dc_version}").object()
+                        }
+
+                    }
+                }
+
                 // TBD: Determine which application is active
                 //      Set Image, Set VERSION
                 //      Deploy into the other application
@@ -139,6 +167,13 @@ podTemplate(
 
             stage('Switch over to new Version') {
                 echo "Switching Production application to ${destApp}."
+                openshift.withCluster() {
+                    openshift.withProject("${prodProject}") {
+                        def route = openshift.selector("route/tasks").object()
+                        route.spec.to.name="${destApp}"
+                        openshift.apply(route)
+                    }
+                }
                 // TBD: Execute switch
             }
         }
